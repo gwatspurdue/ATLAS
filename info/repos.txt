@@ -1,0 +1,3 @@
+https://github.com/gwatspurdue/ADMET-AI-Microservice
+https://github.com/gwatspurdue/Admetica-Microservice
+https://github.com/gwatspurdue/ADMEThyst-Microservice
