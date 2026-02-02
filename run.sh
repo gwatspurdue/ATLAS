@@ -31,7 +31,7 @@ for container in "$CONTAINER_DIR"/*.sif; do
   port=$(echo "$PORTS" | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('$container_name', ''))")
   
   echo "[+] Starting container: $container on port $port"
-  singularity run --env PORT="$port" "$container" > "logs/${container_name}.log" 2>&1 &
+  singularity run --containall --cleanenv --env PORT="$port" "$container" > "logs/${container_name}.log" 2>&1 &
 done
 
 echo "[+] All containers are starting..."
