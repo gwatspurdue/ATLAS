@@ -1,43 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-MODELS_DIR="$BASE_DIR/models"
+# Check if container directory argument is provided
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 <container_directory>"
+  exit 1
+fi
+
+CONTAINER_DIR="$1"
+
+# Check if container directory is not empty
+if [ -z "$CONTAINER_DIR" ]; then
+  echo "Container directory cannot be empty."
+  exit 1
+fi
 
 echo "[+] Starting ADMET platform"
 
-cleanup() {
-  echo "[+] Shutting down..."
-  kill 0
-}
-trap cleanup SIGINT SIGTERM EXIT
+# Create logs directory
+mkdir -p logs
+
+# Load port configuration
+PORTS=$(python3 assign_ports.py --dir "$CONTAINER_DIR" 2>&1 | grep -v "^\[" | grep -v "^✓" | grep -v "^✗")
 
 # Start model containers
 echo "[+] Starting model containers"
 
-apptainer exec \
-  --containall \
-  "$MODELS_DIR/tox.sif" \
-  python server.py --port 9001 &
+for container in "$CONTAINER_DIR"/*.sif; do
+  container_name=$(basename "$container" .sif)
+  port=$(echo "$PORTS" | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('$container_name', ''))")
+  
+  echo "[+] Starting container: $container on port $port"
+  singularity run --env PORT="$port" "$container" > "logs/${container_name}.log" 2>&1 &
+done
 
-apptainer exec \
-  --containall \
-  "$MODELS_DIR/pk.sif" \
-  python server.py --port 9002 &
+echo "[+] All containers are starting..."
 
-apptainer exec \
-  --containall \
-  "$MODELS_DIR/solubility.sif" \
-  python server.py --port 9003 &
-
-sleep 3  # give them time to boot
+sleep 15  # give them time to boot (adjust as necessary)
 
 # Start orchestrator
 echo "[+] Starting orchestrator"
 
-apptainer exec \
-  --containall \
-  orchestrator.sif \
-  uvicorn orchestrator:app \
-    --host 0.0.0.0 \
-    --port 8080
+python3 orchestrator.py
