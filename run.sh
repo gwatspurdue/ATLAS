@@ -36,7 +36,7 @@ done
 
 echo "[+] All containers are starting..."
 
-sleep 15  # give them time to boot (adjust as necessary)
+sleep 30  # give them time to boot (adjust as necessary)
 
 # Start orchestrator
 echo "[+] Starting orchestrator"
