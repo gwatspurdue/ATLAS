@@ -43,7 +43,64 @@ done
 
 echo "[+] All containers are starting..."
 
-sleep 75  # give them time to boot (adjust as necessary)
+# Wait for containers to signal healthy via their /health endpoints (no arbitrary sleep)
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-120}"   # seconds per container
+WAIT_INTERVAL="${WAIT_INTERVAL:-2}"    # seconds between checks
+
+if [ ! -f container_ports.json ]; then
+  echo "container_ports.json not found!"
+  exit 1
+fi
+
+wait_for() {
+  name="$1"
+  port="$2"
+  timeout="$3"
+  interval="$4"
+  elapsed=0
+  while [ "$elapsed" -lt "$timeout" ]; do
+    # Query the health endpoint and parse the JSON "status" field
+    status=$(curl -sS "http://localhost:${port}/health" 2>/dev/null | python3 -c 'import sys, json
+data = sys.stdin.read()
+if not data:
+    print("")
+else:
+    try:
+        print(json.loads(data).get("status", ""))
+    except Exception:
+        print("")')
+    if [ "${status}" = "healthy" ]; then
+      echo "[+] ${name} is healthy (port ${port})."
+      return 0
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+  echo "[-] Timeout waiting for ${name} (port ${port}) after ${timeout}s"
+  return 1
+}
+
+failed=0
+# Read container names and ports from container_ports.json
+while IFS=$' ' read -r name port; do
+  if ! wait_for "$name" "$port" "$WAIT_TIMEOUT" "$WAIT_INTERVAL"; then
+    failed=1
+  fi
+done < <(python3 - <<PY
+import json
+with open('container_ports.json') as f:
+    data = json.load(f)
+for k, v in data.items():
+    print(k, v)
+PY
+)
+
+if [ "$failed" -ne 0 ]; then
+  echo "[-] Some containers failed to become healthy. See logs/ for details. Exiting."
+  exit 1
+fi
+
+echo "[+] All containers healthy."
 
 # Start orchestrator
 echo "[+] Starting orchestrator"
