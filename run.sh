@@ -21,6 +21,29 @@ echo "[+] Starting ADMET platform"
 mkdir -p logs
 mkdir -p pids
 
+# Ensure a placeholder log exists so tail glob has at least one file
+touch logs/.placeholder.log
+
+# Start live log viewer so Python output (and other logs) appear on the terminal
+# and also append to the log files. PID is recorded so it can be stopped later.
+echo "[+] Starting live log viewer (tail -F logs/orchestrator.log)"
+tail -n +1 -F logs/orchestrator.log 2>/dev/null | sed -u 's/^/[LOG] /' &
+logviewer_pid=$!
+echo "$logviewer_pid" > "pids/logviewer.pid"
+echo "[+] Recorded log viewer PID $logviewer_pid in pids/logviewer.pid"
+
+# Ensure the live viewer is cleaned up when this script exits
+cleanup() {
+  if [ -f "pids/logviewer.pid" ]; then
+    lvpid=$(cat "pids/logviewer.pid" || true)
+    if [ -n "${lvpid:-}" ]; then
+      kill "$lvpid" || true
+      rm -f "pids/logviewer.pid"
+    fi
+  fi
+}
+trap cleanup EXIT
+
 # Load port configuration
 PORTS=$(python3 assign_ports.py --dir "$CONTAINER_DIR" 2>&1 | grep -v "^\[" | grep -v "^✓" | grep -v "^✗")
 

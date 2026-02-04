@@ -109,4 +109,26 @@ else
   [ -f "$orch_pidfile" ] && rm -f "$orch_pidfile"
 fi
 
+# Stop live log viewer (if running)
+echo "[+] Stopping log viewer"
+if [ -f "pids/logviewer.pid" ]; then
+  lvpid=$(cat "pids/logviewer.pid" || true)
+  if [ -n "${lvpid:-}" ]; then
+    kill "$lvpid" || true
+    for i in {1..5}; do
+      if kill -0 "$lvpid" 2>/dev/null; then
+        sleep 1
+      else
+        break
+      fi
+    done
+    if kill -0 "$lvpid" 2>/dev/null; then
+      kill -KILL "$lvpid" || true
+    fi
+  fi
+  rm -f "pids/logviewer.pid"
+else
+  echo "[*] No log viewer pidfile found"
+fi
+
 echo "[+] Done."
