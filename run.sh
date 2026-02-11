@@ -135,3 +135,4 @@ echo "[+] Recorded orchestrator PID $orch_pid in pids/orchestrator.pid"
 
 # Wait for orchestrator so the script remains running
 wait "$orch_pid"
+sleep 1
