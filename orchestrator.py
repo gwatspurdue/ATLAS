@@ -73,7 +73,9 @@ def smiles_all_containers(smiles, timeout=REQUEST_TIMEOUT):
     for container in containers:
         try:
             logger.info(f"Posting SMILES to {container.name} (port {container.port})")
-            response = session.post(f"http://localhost:{container.port}/smi", json={"smiles": smiles}, timeout=timeout)
+            response = requests.post(f"http://localhost:{container.port}/smi",
+            json={"smiles": smiles, "property": ["Bioavailability_Ma"]},
+            timeout=timeout, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
                 try:
                     results[container.name] = response.json()
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     
     logger.info("Sending test SMILES to all containers...")
     test_smiles = "C1=CC=CC=C1"  # Example SMILES for benzene
-    results = smiles_all_containers(test_smiles)
+    results = smiles_all_containers(test_smiles, 60)
     for container_name, result in results.items():
         logger.info(f"Results from {container_name}: {result}")
     logger.info("Orchestrator run complete")
